@@ -10,7 +10,7 @@ export default function FileListItem({
   removeFile,
 }) {
   return (
-    <li key={id}>
+    <li>
       <div className="flex items-center w-full file-card-bg-color transition-colors rounded-lg p-3 gap-4">
         {file.type && file.type.startsWith("image/") ? (
           <img
@@ -43,6 +43,58 @@ export default function FileListItem({
               const isAudio = file.type && file.type.startsWith("audio/");
               const isVideo = file.type && file.type.startsWith("video/");
 
+              const deriveKey = (f) => {
+                if (!f) return null;
+                const t = (f.type || "").toLowerCase();
+                if (t.includes("png")) return "png";
+                if (t.includes("jpeg") || t.includes("jpg")) return "jpeg";
+                if (t.includes("webp")) return "webp";
+                if (t.includes("mpeg") || t.includes("mp3")) return "mp3";
+                if (t.includes("wav")) return "wav";
+                if (t.includes("ogg")) return "ogg";
+                if (t.includes("mp4")) return "mp4";
+                if (t.includes("webm")) return "webm";
+                if (t.includes("quicktime") || t.includes("mov")) return "mov";
+                if (t.includes("matroska") || t.includes("mkv")) return "mkv";
+                if (t.includes("x-msvideo") || t.includes("avi")) return "avi";
+                if (t.includes("x-flv") || t.includes("flv")) return "flv";
+                if (t.includes("m4v")) return "m4v";
+                const name = (f.name || "").toLowerCase();
+                const ext = name.split(".").pop();
+                return ext || null;
+              };
+
+              const currentKey = deriveKey(file);
+
+              const imageOptions = [
+                { value: "png", label: "PNG" },
+                { value: "jpeg", label: "JPEG" },
+                { value: "webp", label: "WEBP" },
+                { value: "avif", label: "AVIF" },
+                { value: "tiff", label: "TIFF" },
+                { value: "bmp", label: "BMP" },
+                { value: "ico", label: "ICO" },
+                { value: "svg", label: "SVG" },
+                { value: "heic", label: "HEIC" },
+                { value: "raw", label: "RAW" },
+              ].filter((o) => o.value !== currentKey);
+
+              const audioOptions = [
+                { value: "mp3", label: "MP3" },
+                { value: "wav", label: "WAV" },
+                { value: "ogg", label: "OGG" },
+              ].filter((o) => o.value !== currentKey);
+
+              const videoOptions = [
+                { value: "mp4", label: "MP4" },
+                { value: "webm", label: "WEBM" },
+                { value: "mov", label: "MOV" },
+                { value: "mkv", label: "MKV" },
+                { value: "avi", label: "AVI" },
+                { value: "flv", label: "FLV" },
+                { value: "m4v", label: "M4V" },
+              ].filter((o) => o.value !== currentKey);
+
               return (
                 <select
                   value={state.selectedType || ""}
@@ -51,39 +103,59 @@ export default function FileListItem({
                 >
                   <option value="">Select type</option>
 
-                  {isImage ? (
-                    <>
-                      <option value="png">PNG</option>
-                      <option value="jpeg">JPEG</option>
-                      <option value="webp">WEBP</option>
-                    </>
-                  ) : null}
+                  {isImage && imageOptions.length > 0
+                    ? imageOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))
+                    : null}
 
                   {isAudio ? (
                     <>
-                      <optgroup label="Audio">
-                        <option value="mp3">MP3</option>
-                        <option value="wav">WAV</option>
-                        <option value="ogg">OGG</option>
-                      </optgroup>
-                      <optgroup label="Video">
-                        <option value="mp4">MP4</option>
-                        <option value="webm">WEBM</option>
-                      </optgroup>
+                      {audioOptions.length > 0 ? (
+                        <optgroup label="Audio">
+                          {audioOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+
+                      {videoOptions.length > 0 ? (
+                        <optgroup label="Video">
+                          {videoOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
                     </>
                   ) : null}
 
                   {isVideo ? (
                     <>
-                      <optgroup label="Video">
-                        <option value="mp4">MP4</option>
-                        <option value="webm">WEBM</option>
-                      </optgroup>
-                      <optgroup label="Audio">
-                        <option value="mp3">MP3</option>
-                        <option value="wav">WAV</option>
-                        <option value="ogg">OGG</option>
-                      </optgroup>
+                      {videoOptions.length > 0 ? (
+                        <optgroup label="Video">
+                          {videoOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+
+                      {audioOptions.length > 0 ? (
+                        <optgroup label="Audio">
+                          {audioOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
                     </>
                   ) : null}
                 </select>
@@ -120,7 +192,7 @@ export default function FileListItem({
             </div>
           ) : (
             <button
-              onClick={() => startConvert(id)}
+              onClick={() => startConvert(id, state.selectedType)}
               disabled={!state.selectedType}
               aria-label="Start converting file"
               title="Start converting file"
@@ -135,7 +207,7 @@ export default function FileListItem({
           )}
 
           <button
-            onClick={() => removeFile(index)}
+            onClick={() => removeFile(id)}
             aria-label="Remove file"
             title="Remove file"
             className="bg-red-500 hover:bg-red-600 rounded-lg cursor-pointer px-3 py-2 flex items-center justify-center"

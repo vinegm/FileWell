@@ -1,20 +1,20 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import FileListItem from "./FileListItem";
+import { useCallback, useState, useRef } from "react";
+import FileListItem from "@/components/client/FileListItem";
+import convertFile from "@/utils/convert";
 
 export default function FileManager() {
   const [files, setFiles] = useState([]);
   const [conversionStates, setConversionStates] = useState({});
+  const fileId = useRef(1);
 
   const onDrop = useCallback((event) => {
     event.preventDefault();
     const list = Array.from(event.dataTransfer?.files || []);
     if (list.length)
       setFiles((prevFiles) =>
-        prevFiles.concat(
-          list.map((file) => ({ id: `${Date.now()}-${Math.random()}`, file }))
-        )
+        prevFiles.concat(list.map((file) => ({ id: fileId.current++, file })))
       );
   }, []);
 
@@ -22,15 +22,13 @@ export default function FileManager() {
     const list = Array.from(event.target.files || []);
     if (list.length)
       setFiles((prevFiles) =>
-        prevFiles.concat(
-          list.map((file) => ({ id: `${Date.now()}-${Math.random()}`, file }))
-        )
+        prevFiles.concat(list.map((file) => ({ id: fileId.current++, file })))
       );
   }, []);
 
-  const removeFile = (removeIndex) => {
+  const removeFile = (idToRemove) => {
     setFiles((prevFiles) => {
-      const target = prevFiles[removeIndex];
+      const target = prevFiles.find((f) => f.id === idToRemove);
       if (
         target &&
         conversionStates[target.id] &&
@@ -40,8 +38,8 @@ export default function FileManager() {
           URL.revokeObjectURL(conversionStates[target.id].downloadUrl);
         } catch (err) {}
       }
-      const next = prevFiles.filter((_, index) => index !== removeIndex);
-      // also cleanup conversion state
+      const next = prevFiles.filter((f) => f.id !== idToRemove);
+
       setConversionStates((prevStates) => {
         const copy = { ...prevStates };
         if (target) delete copy[target.id];
@@ -62,59 +60,56 @@ export default function FileManager() {
     }));
   };
 
-  const startConvert = (id) => {
-    const state = conversionStates[id] || {};
-    const selected = state.selectedType || null;
-    // hide selector by setting status to converting
-    setConversionStates((prevStates) => ({
-      ...(prevStates || {}),
-      [id]: { ...(prevStates[id] || {}), status: "converting" },
-    }));
+  const startConvert = (id, selectedFromUI = null) => {
+    (async () => {
+      const state = conversionStates[id] || {};
+      const selected = selectedFromUI || state.selectedType || null;
 
-    // mock conversion with timeout
-    setTimeout(() => {
+      setConversionStates((prevStates) => ({
+        ...(prevStates || {}),
+        [id]: { ...(prevStates[id] || {}), status: "converting" },
+      }));
+
       const entry = files.find((fileItem) => fileItem.id === id);
       if (!entry) return;
       const original = entry.file;
 
-      // derive mime from selected type when possible
-      const mimeMap = {
-        png: "image/png",
-        jpeg: "image/jpeg",
-        jpg: "image/jpeg",
-        webp: "image/webp",
-        mp3: "audio/mpeg",
-        wav: "audio/wav",
-        ogg: "audio/ogg",
-        mp4: "video/mp4",
-        webm: "video/webm",
-      };
-      const mime =
-        mimeMap[selected] || original.type || "application/octet-stream";
+      try {
+        const { blob } = await convertFile(original, selected);
 
-      // create a mock converted blob (for now reuse content)
-      const converted = new Blob([original], { type: mime });
-      const url = URL.createObjectURL(converted);
+        if (!blob) throw new Error("Conversion produced no blob");
 
-      setConversionStates((prevStates) => ({
-        ...(prevStates || {}),
-        [id]: { ...(prevStates[id] || {}), status: "done", downloadUrl: url },
-      }));
-    }, 2000);
+        const url = URL.createObjectURL(blob);
+
+        setConversionStates((prevStates) => ({
+          ...(prevStates || {}),
+          [id]: { ...(prevStates[id] || {}), status: "done", downloadUrl: url },
+        }));
+      } catch (err) {
+        setConversionStates((prevStates) => ({
+          ...(prevStates || {}),
+          [id]: {
+            ...(prevStates[id] || {}),
+            status: "error",
+            error: String(err),
+          },
+        }));
+      }
+    })();
   };
 
   const returnToSelection = (id) => {
     setConversionStates((prevStates) => {
       const copy = { ...(prevStates || {}) };
       const entry = copy[id] || {};
-      // revoke previous download url if present
+
       if (entry.downloadUrl) {
         try {
           URL.revokeObjectURL(entry.downloadUrl);
         } catch (err) {}
       }
       copy[id] = { ...(entry || {}), status: "idle", selectedType: "" };
-      // remove downloadUrl after revoking
+
       if (copy[id].downloadUrl) delete copy[id].downloadUrl;
       return copy;
     });
@@ -123,12 +118,53 @@ export default function FileManager() {
   const triggerDownload = (id) => {
     const state = conversionStates[id];
     const entry = files.find((fileItem) => fileItem.id === id);
+
     if (!state || !entry) return;
+
     const url = state.downloadUrl;
+
     if (!url) return;
+
     const a = document.createElement("a");
     a.href = url;
-    a.download = entry.file.name;
+
+    const extMap = {
+      jpeg: "jpg",
+      jpg: "jpg",
+      png: "png",
+      webp: "webp",
+      mp3: "mp3",
+      wav: "wav",
+      ogg: "ogg",
+      mp4: "mp4",
+      webm: "webm",
+      mov: "mov",
+      mkv: "mkv",
+      avi: "avi",
+      flv: "flv",
+      m4v: "m4v",
+      avif: "avif",
+      tiff: "tiff",
+      tif: "tif",
+      bmp: "bmp",
+      ico: "ico",
+      svg: "svg",
+      heic: "heic",
+      raw: "raw",
+    };
+
+    const sel = state.selectedType;
+    const newExt = sel ? extMap[sel] || sel : null;
+    let name = entry.file.name || "download";
+
+    if (newExt) {
+      const parts = name.split(".");
+      if (parts.length > 1) parts[parts.length - 1] = newExt;
+      else parts.push(newExt);
+      name = parts.join(".");
+    }
+
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -182,7 +218,7 @@ export default function FileManager() {
                   state={state}
                   setSelectedType={setSelectedType}
                   startConvert={startConvert}
-                      returnToSelection={returnToSelection}
+                  returnToSelection={returnToSelection}
                   triggerDownload={triggerDownload}
                   removeFile={removeFile}
                 />
