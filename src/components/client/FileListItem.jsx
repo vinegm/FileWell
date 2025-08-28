@@ -1,181 +1,295 @@
+import { useCallback } from "react";
+import convertFile from "@/utils/convert";
+import {
+  getFileCategory,
+  getAvailableFormats,
+  getFileIcon,
+  formatFileSize,
+  EXTENSION_MAP,
+  FORMAT_OPTIONS,
+} from "@/utils/file-types";
+
 export default function FileListItem({
   id,
-  file,
   index,
-  state = {},
-  setSelectedType,
-  startConvert,
-  returnToSelection,
-  triggerDownload,
-  removeFile,
+  files,
+  setFiles,
+  isFFmpegReady,
 }) {
+  const removeFile = useCallback(
+    (idToRemove) => {
+      setFiles((prevFiles) => {
+        const target = prevFiles.find((file) => file.id === idToRemove);
+
+        if (target && target.conversion && target.conversion.downloadUrl) {
+          try {
+            URL.revokeObjectURL(target.conversion.downloadUrl);
+          } catch (error) {}
+        }
+
+        return prevFiles.filter((file) => file.id !== idToRemove);
+      });
+    },
+    [setFiles]
+  );
+
+  const setSelectedType = useCallback(
+    (id, selectedType) => {
+      setFiles((prevFiles) =>
+        prevFiles.map((file) =>
+          file.id === id
+            ? {
+                ...file,
+                conversion: {
+                  ...file.conversion,
+                  selectedType,
+                  status: file.conversion?.status || "idle",
+                },
+              }
+            : file
+        )
+      );
+    },
+    [setFiles]
+  );
+
+  const startConvert = useCallback(
+    (id) => {
+      (async () => {
+        setFiles((prevFiles) =>
+          prevFiles.map((file) =>
+            file.id === id
+              ? {
+                  ...file,
+                  conversion: {
+                    ...file.conversion,
+                    status: "converting",
+                  },
+                }
+              : file
+          )
+        );
+
+        const entry = files.find((fileItem) => fileItem.id === id);
+        if (!entry) return;
+
+        const original = entry.file;
+        const selected = entry.conversion?.selectedType || null;
+
+        try {
+          const { blob } = await convertFile(original, selected);
+          if (!blob) throw new Error("Conversion produced no blob");
+
+          const url = URL.createObjectURL(blob);
+          setFiles((prevFiles) =>
+            prevFiles.map((file) =>
+              file.id === id
+                ? {
+                    ...file,
+                    conversion: {
+                      ...file.conversion,
+                      status: "done",
+                      downloadUrl: url,
+                    },
+                  }
+                : file
+            )
+          );
+        } catch (err) {
+          setFiles((prevFiles) =>
+            prevFiles.map((file) =>
+              file.id === id
+                ? {
+                    ...file,
+                    conversion: {
+                      ...file.conversion,
+                      status: "error",
+                      error: String(err),
+                    },
+                  }
+                : file
+            )
+          );
+        }
+      })();
+    },
+    [setFiles, files]
+  );
+
+  const returnToSelection = useCallback(
+    (id) => {
+      setFiles((prevFiles) =>
+        prevFiles.map((file) => {
+          if (file.id !== id) return file;
+
+          if (file.conversion && file.conversion.downloadUrl) {
+            try {
+              URL.revokeObjectURL(file.conversion.downloadUrl);
+            } catch (error) {}
+          }
+
+          const { downloadUrl, ...rest } = file.conversion || {};
+          return {
+            ...file,
+            conversion: {
+              ...rest,
+              status: "idle",
+              selectedType: "",
+            },
+          };
+        })
+      );
+    },
+    [setFiles]
+  );
+
+  const triggerDownload = useCallback(
+    (id) => {
+      const entry = files.find((fileItem) => fileItem.id === id);
+      if (!entry || !entry.conversion) return;
+
+      const url = entry.conversion.downloadUrl;
+      if (!url) return;
+
+      const a = document.createElement("a");
+      a.href = url;
+
+      const sel = entry.conversion.selectedType;
+      const newExt = sel ? EXTENSION_MAP[sel] || sel : null;
+      let name = entry.file.name || "download";
+
+      if (newExt) {
+        const parts = name.split(".");
+        if (parts.length > 1) parts[parts.length - 1] = newExt;
+        else parts.push(newExt);
+        name = parts.join(".");
+      }
+
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    },
+    [files]
+  );
+
+  // Get the current file state from the files array
+  const currentFile = files.find((f) => f.id === id);
+  if (!currentFile) return null;
+
   return (
     <li>
       <div className="flex items-center w-full file-card-bg-color transition-colors rounded-lg p-3 gap-4">
-        {file.type && file.type.startsWith("image/") ? (
+        {currentFile.file.type && currentFile.file.type.startsWith("image/") ? (
           <img
-            src={URL.createObjectURL(file)}
-            alt={file.name}
+            src={URL.createObjectURL(currentFile.file)}
+            alt={currentFile.file.name}
             className="w-14 h-14 object-cover rounded-lg"
             onLoad={(event) => URL.revokeObjectURL(event.target.src)}
           />
         ) : (
-          <span className="text-3xl">
-            {file.type && file.type.startsWith("audio/")
-              ? "Sound"
-              : file.type && file.type.startsWith("video/")
-              ? "Video"
-              : "Document"}
-          </span>
+          <span className="text-3xl">{getFileIcon(currentFile.file)}</span>
         )}
 
         <div className="flex-1">
-          <div className=" ">{file.name}</div>
+          <div className=" ">{currentFile.file.name}</div>
           <div className=" ">
-            {(file.size / 1024).toFixed(1)} KB - {file.type || "unknown"}
+            {formatFileSize(currentFile.file.size)} -{" "}
+            {currentFile.file.type || "unknown"}
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {(!state.status || state.status === "idle") &&
+          {(!currentFile.conversion?.status ||
+            currentFile.conversion.status === "idle") &&
             (() => {
-              const isImage = file.type && file.type.startsWith("image/");
-              const isAudio = file.type && file.type.startsWith("audio/");
-              const isVideo = file.type && file.type.startsWith("video/");
+              const fileCategory = getFileCategory(currentFile.file);
+              const availableFormats = getAvailableFormats(currentFile.file);
 
-              const deriveKey = (f) => {
-                if (!f) return null;
-                const t = (f.type || "").toLowerCase();
-                if (t.includes("png")) return "png";
-                if (t.includes("jpeg") || t.includes("jpg")) return "jpeg";
-                if (t.includes("webp")) return "webp";
-                if (t.includes("mpeg") || t.includes("mp3")) return "mp3";
-                if (t.includes("wav")) return "wav";
-                if (t.includes("ogg")) return "ogg";
-                if (t.includes("mp4")) return "mp4";
-                if (t.includes("webm")) return "webm";
-                if (t.includes("quicktime") || t.includes("mov")) return "mov";
-                if (t.includes("matroska") || t.includes("mkv")) return "mkv";
-                if (t.includes("x-msvideo") || t.includes("avi")) return "avi";
-                if (t.includes("x-flv") || t.includes("flv")) return "flv";
-                if (t.includes("m4v")) return "m4v";
-                const name = (f.name || "").toLowerCase();
-                const ext = name.split(".").pop();
-                return ext || null;
-              };
-
-              const currentKey = deriveKey(file);
-
-              const imageOptions = [
-                { value: "png", label: "PNG" },
-                { value: "jpeg", label: "JPEG" },
-                { value: "webp", label: "WEBP" },
-                { value: "avif", label: "AVIF" },
-                { value: "tiff", label: "TIFF" },
-                { value: "bmp", label: "BMP" },
-                { value: "ico", label: "ICO" },
-                { value: "svg", label: "SVG" },
-                { value: "heic", label: "HEIC" },
-                { value: "raw", label: "RAW" },
-              ].filter((o) => o.value !== currentKey);
-
-              const audioOptions = [
-                { value: "mp3", label: "MP3" },
-                { value: "wav", label: "WAV" },
-                { value: "ogg", label: "OGG" },
-              ].filter((o) => o.value !== currentKey);
-
-              const videoOptions = [
-                { value: "mp4", label: "MP4" },
-                { value: "webm", label: "WEBM" },
-                { value: "mov", label: "MOV" },
-                { value: "mkv", label: "MKV" },
-                { value: "avi", label: "AVI" },
-                { value: "flv", label: "FLV" },
-                { value: "m4v", label: "M4V" },
-              ].filter((o) => o.value !== currentKey);
+              if (availableFormats.length === 0) {
+                return (
+                  <span className="text-gray-500 px-4 py-2">
+                    No conversions available
+                  </span>
+                );
+              }
 
               return (
                 <select
-                  value={state.selectedType || ""}
-                  onChange={(evt) => setSelectedType(id, evt.target.value)}
+                  value={currentFile.conversion?.selectedType || ""}
+                  onChange={(event) => setSelectedType(id, event.target.value)}
                   className="bg-gray-300 dark:bg-gray-700 rounded-lg font-semibold px-4 py-2 cursor-pointer"
                 >
                   <option value="">Select type</option>
 
-                  {isImage && imageOptions.length > 0
-                    ? imageOptions.map((opt) => (
+                  {fileCategory === "image" && (
+                    <optgroup label="Image">
+                      {availableFormats.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
-                      ))
-                    : null}
+                      ))}
+                    </optgroup>
+                  )}
 
-                  {isAudio ? (
+                  {fileCategory === "audio" && (
                     <>
-                      {audioOptions.length > 0 ? (
-                        <optgroup label="Audio">
-                          {audioOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : null}
+                      <optgroup label="Audio">
+                        {availableFormats.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </optgroup>
 
-                      {videoOptions.length > 0 ? (
+                      {FORMAT_OPTIONS.video.length > 0 && (
                         <optgroup label="Video">
-                          {videoOptions.map((opt) => (
+                          {FORMAT_OPTIONS.video.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
                           ))}
                         </optgroup>
-                      ) : null}
+                      )}
                     </>
-                  ) : null}
+                  )}
 
-                  {isVideo ? (
+                  {fileCategory === "video" && (
                     <>
-                      {videoOptions.length > 0 ? (
-                        <optgroup label="Video">
-                          {videoOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : null}
+                      <optgroup label="Video">
+                        {availableFormats.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </optgroup>
 
-                      {audioOptions.length > 0 ? (
+                      {FORMAT_OPTIONS.audio.length > 0 && (
                         <optgroup label="Audio">
-                          {audioOptions.map((opt) => (
+                          {FORMAT_OPTIONS.audio.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
                           ))}
                         </optgroup>
-                      ) : null}
+                      )}
                     </>
-                  ) : null}
+                  )}
                 </select>
               );
             })()}
 
-          {state.status === "converting" ? (
+          {currentFile.conversion?.status === "converting" ? (
             <button
               aria-label="Converting file..."
               className="bg-yellow-500 rounded-lg font-semibold px-4 py-2"
             >
               Converting...
             </button>
-          ) : state.status === "done" ? (
+          ) : currentFile.conversion?.status === "done" ? (
             <div className="flex items-center gap-2">
               <button
-                onClick={() =>
-                  typeof returnToSelection === "function" &&
-                  returnToSelection(id)
-                }
+                onClick={() => returnToSelection(id)}
                 aria-label="Change file type"
                 className="font-semibold bg-gray-300 dark:bg-gray-700 rounded-lg cursor-pointer px-4 py-2"
               >
@@ -191,19 +305,32 @@ export default function FileListItem({
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => startConvert(id, state.selectedType)}
-              disabled={!state.selectedType}
-              aria-label="Start converting file"
-              title="Start converting file"
-              className={`font-semibold rounded-lg px-4 py-2 ${
-                state.selectedType
-                  ? "bg-blue-500 dark:bg-blue-600 cursor-pointer"
-                  : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
-              }`}
-            >
-              Convert
-            </button>
+            (() => {
+              const fileCategory = getFileCategory(currentFile.file);
+              const isAudioVideo =
+                fileCategory === "audio" || fileCategory === "video";
+              const isDisabled =
+                !currentFile.conversion?.selectedType ||
+                (isAudioVideo && !isFFmpegReady);
+              const buttonText =
+                isAudioVideo && !isFFmpegReady ? "Loading..." : "Convert";
+
+              return (
+                <button
+                  onClick={() => startConvert(id)}
+                  disabled={isDisabled}
+                  aria-label="Start converting file"
+                  title="Start converting file"
+                  className={`font-semibold rounded-lg px-4 py-2 ${
+                    !isDisabled
+                      ? "bg-blue-500 dark:bg-blue-600 cursor-pointer"
+                      : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
+                  }`}
+                >
+                  {buttonText}
+                </button>
+              );
+            })()
           )}
 
           <button
