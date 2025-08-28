@@ -86,7 +86,7 @@ export default function FileManager() {
         <div className="box-bg-color p-6 rounded-2xl shadow-lg">
           {files.length === 0 && (
             <p className=" ">
-              No files yet — add some to see them listed here.
+              The well is dry, add some files to see them listed here.
             </p>
           )}
           <ul className="space-y-2">

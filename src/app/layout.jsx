@@ -3,7 +3,13 @@ import "./globals.css";
 
 export const metadata = {
   title: "FileWell",
-  description: "A lightweight client-side",
+  description:
+    "Convert images, audio, and video directly in your browser with FileWell. Enjoy fast local processing plus optional obfuscation to protect files from machine learning use.",
+  keywords:
+    "filewell, file converter, browser file conversion, local file processing, image converter, audio converter, video converter, file obfuscation, data protection, machine learning prevention, privacy tools, perturbation tool",
+  authors: [{ name: "Vinícius Gonçalves Mohr", url: "https://vinegm.dev" }],
+  creator: "Vinícius Gonçalves Mohr",
+  icon: "/favicon.ico",
 };
 
 export default function RootLayout({ children }) {
