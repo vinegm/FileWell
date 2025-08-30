@@ -8,6 +8,16 @@ html {
   scroll-padding-top: 6rem;
 }
 
+/* Improve touch targets for mobile */
+@media (max-width: 640px) {
+  button,
+  select,
+  input[type="file"] + span {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 .text-color {
   @apply text-black dark:text-white;
 }
@@ -18,4 +28,17 @@ html {
 
 .file-card-bg-color {
   @apply bg-gray-400 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-600;
+}
+
+/* Responsive text sizes */
+@media (max-width: 480px) {
+  .text-5xl {
+    @apply text-3xl;
+  }
+  .text-4xl {
+    @apply text-2xl;
+  }
+  .text-3xl {
+    @apply text-xl;
+  }
 }

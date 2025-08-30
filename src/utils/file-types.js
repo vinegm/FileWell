@@ -1,45 +1,3 @@
-export const MIME_TYPES = {
-  // Images
-  png: "image/png",
-  jpeg: "image/jpeg",
-  jpg: "image/jpeg",
-  webp: "image/webp",
-  avif: "image/avif",
-  tiff: "image/tiff",
-  tif: "image/tiff",
-  bmp: "image/bmp",
-  ico: "image/x-icon",
-  svg: "image/svg+xml",
-  heic: "image/heic",
-  raw: "application/octet-stream",
-
-  // Audio
-  mp3: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  aac: "audio/aac",
-  flac: "audio/flac",
-  m4a: "audio/x-m4a",
-  wma: "audio/x-ms-wma",
-
-  // Video
-  mp4: "video/mp4",
-  webm: "video/webm",
-  mov: "video/quicktime",
-  mkv: "video/x-matroska",
-  avi: "video/x-msvideo",
-  flv: "video/x-flv",
-  m4v: "video/x-m4v",
-  "3gp": "video/3gpp",
-  "3g2": "video/3gpp2",
-  wmv: "video/x-ms-wmv",
-  ogv: "video/ogg",
-  h264: "video/h264",
-  264: "video/h264",
-  hevc: "video/hevc",
-  265: "video/hevc",
-};
-
 export const FORMAT_OPTIONS = {
   image: [
     { value: "png", label: "PNG" },
@@ -49,18 +7,11 @@ export const FORMAT_OPTIONS = {
     { value: "tiff", label: "TIFF" },
     { value: "bmp", label: "BMP" },
     { value: "ico", label: "ICO" },
-    { value: "svg", label: "SVG" },
-    { value: "heic", label: "HEIC" },
-    { value: "raw", label: "RAW" },
   ],
   audio: [
     { value: "mp3", label: "MP3" },
     { value: "wav", label: "WAV" },
     { value: "ogg", label: "OGG" },
-    { value: "aac", label: "AAC" },
-    { value: "flac", label: "FLAC" },
-    { value: "m4a", label: "M4A" },
-    { value: "wma", label: "WMA" },
   ],
   video: [
     { value: "mp4", label: "MP4" },
@@ -69,54 +20,7 @@ export const FORMAT_OPTIONS = {
     { value: "mkv", label: "MKV" },
     { value: "avi", label: "AVI" },
     { value: "flv", label: "FLV" },
-    { value: "m4v", label: "M4V" },
-    { value: "3gp", label: "3GP" },
-    { value: "3g2", label: "3G2" },
-    { value: "wmv", label: "WMV" },
-    { value: "ogv", label: "OGV" },
-    { value: "h264", label: "H264" },
-    { value: "264", label: "264" },
-    { value: "hevc", label: "HEVC" },
-    { value: "265", label: "265" },
   ],
-};
-
-// File extension to file extension mapping for downloads
-export const EXTENSION_MAP = {
-  jpeg: "jpg",
-  jpg: "jpg",
-  png: "png",
-  webp: "webp",
-  avif: "avif",
-  tiff: "tiff",
-  tif: "tif",
-  bmp: "bmp",
-  ico: "ico",
-  svg: "svg",
-  heic: "heic",
-  raw: "raw",
-  mp3: "mp3",
-  wav: "wav",
-  ogg: "ogg",
-  aac: "aac",
-  flac: "flac",
-  m4a: "m4a",
-  wma: "wma",
-  mp4: "mp4",
-  webm: "webm",
-  mov: "mov",
-  mkv: "mkv",
-  avi: "avi",
-  flv: "flv",
-  m4v: "m4v",
-  "3gp": "3gp",
-  "3g2": "3g2",
-  wmv: "wmv",
-  ogv: "ogv",
-  h264: "h264",
-  264: "264",
-  hevc: "hevc",
-  265: "265",
 };
 
 /**
@@ -133,74 +37,96 @@ export function getFileCategory(file) {
 }
 
 /**
- * Derives the current format key from a File object
- */
-export function deriveFileFormat(file) {
-  if (!file) return null;
-
-  const type = (file.type || "").toLowerCase();
-
-  // Check common MIME type patterns
-  if (type.includes("png")) return "png";
-  if (type.includes("jpeg") || type.includes("jpg")) return "jpeg";
-  if (type.includes("webp")) return "webp";
-  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
-  if (type.includes("wav")) return "wav";
-  if (type.includes("ogg")) return "ogg";
-  if (type.includes("aac")) return "aac";
-  if (type.includes("flac")) return "flac";
-  if (type.includes("m4a")) return "m4a";
-  if (type.includes("wma")) return "wma";
-  if (type.includes("mp4")) return "mp4";
-  if (type.includes("webm")) return "webm";
-  if (type.includes("quicktime") || type.includes("mov")) return "mov";
-  if (type.includes("matroska") || type.includes("mkv")) return "mkv";
-  if (type.includes("x-msvideo") || type.includes("avi")) return "avi";
-  if (type.includes("x-flv") || type.includes("flv")) return "flv";
-  if (type.includes("m4v")) return "m4v";
-  if (type.includes("3gpp") || type.includes("3gp")) return "3gp";
-  if (type.includes("3gpp2") || type.includes("3g2")) return "3g2";
-  if (type.includes("x-ms-wmv") || type.includes("wmv")) return "wmv";
-  if (type.includes("h264")) return "h264";
-  if (type.includes("hevc")) return "hevc";
-
-  // Fallback to file extension
-  const name = (file.name || "").toLowerCase();
-  const ext = name.split(".").pop();
-  return ext || null;
-}
-
-/**
- * Gets available format options for a file, excluding its current format
+ * Gets available format options for a file
  */
 export function getAvailableFormats(file) {
   const category = getFileCategory(file);
-  const currentFormat = deriveFileFormat(file);
 
   if (category === "unknown") return [];
 
-  return (
-    FORMAT_OPTIONS[category]?.filter(
-      (option) => option.value !== currentFormat
-    ) || []
-  );
+  return FORMAT_OPTIONS[category] || [];
 }
 
 /**
- * Gets the appropriate file icon text based on file type
+ * Gets the appropriate file icon SVG based on file type
  */
 export function getFileIcon(file) {
   const category = getFileCategory(file);
 
   switch (category) {
     case "audio":
-      return "🎵";
+      return (
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-blue-500"
+        >
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </svg>
+      );
     case "video":
-      return "🎬";
+      return (
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-purple-500"
+        >
+          <polygon points="23 7 16 12 23 17 23 7" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        </svg>
+      );
     case "image":
-      return "🖼️";
+      return (
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-green-500"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <circle cx="9" cy="9" r="2" />
+          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+        </svg>
+      );
     default:
-      return "📄";
+      return (
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-gray-500"
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14,2 14,8 20,8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10,9 9,9 8,9" />
+        </svg>
+      );
   }
 }
 

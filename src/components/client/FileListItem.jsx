@@ -1,11 +1,10 @@
 import { useCallback } from "react";
-import convertFile from "@/utils/convert";
+import converter from "@/utils/convert";
 import {
   getFileCategory,
   getAvailableFormats,
   getFileIcon,
   formatFileSize,
-  EXTENSION_MAP,
   FORMAT_OPTIONS,
 } from "@/utils/file-types";
 
@@ -77,7 +76,7 @@ export default function FileListItem({
         const selected = entry.conversion?.selectedType || null;
 
         try {
-          const { blob } = await convertFile(original, selected);
+          const blob = await converter.convertFile(original, selected);
           if (!blob) throw new Error("Conversion produced no blob");
 
           const url = URL.createObjectURL(blob);
@@ -151,11 +150,11 @@ export default function FileListItem({
       const url = entry.conversion.downloadUrl;
       if (!url) return;
 
-      const a = document.createElement("a");
-      a.href = url;
+      const link = document.createElement("a");
+      link.href = url;
 
       const sel = entry.conversion.selectedType;
-      const newExt = sel ? EXTENSION_MAP[sel] || sel : null;
+      const newExt = sel || null;
       let name = entry.file.name || "download";
 
       if (newExt) {
@@ -165,41 +164,52 @@ export default function FileListItem({
         name = parts.join(".");
       }
 
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     },
     [files]
   );
 
-  // Get the current file state from the files array
-  const currentFile = files.find((f) => f.id === id);
+  const currentFile = files.find((file) => file.id === id);
   if (!currentFile) return null;
 
   return (
     <li>
-      <div className="flex items-center w-full file-card-bg-color transition-colors rounded-lg p-3 gap-4">
-        {currentFile.file.type && currentFile.file.type.startsWith("image/") ? (
-          <img
-            src={URL.createObjectURL(currentFile.file)}
-            alt={currentFile.file.name}
-            className="w-14 h-14 object-cover rounded-lg"
-            onLoad={(event) => URL.revokeObjectURL(event.target.src)}
-          />
-        ) : (
-          <span className="text-3xl">{getFileIcon(currentFile.file)}</span>
-        )}
+      <div className="flex flex-col sm:flex-row sm:items-center w-full file-card-bg-color transition-colors rounded-lg p-3 sm:p-4 gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 flex-1">
+          {currentFile.file.type &&
+          currentFile.file.type.startsWith("image/") ? (
+            <img
+              src={URL.createObjectURL(currentFile.file)}
+              alt={`Preview of ${currentFile.file.name}`}
+              className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-gray-300 dark:border-gray-600 flex-shrink-0"
+              onLoad={(event) => URL.revokeObjectURL(event.target.src)}
+              loading="lazy"
+            />
+          ) : (
+            <div
+              className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
+              role="img"
+              aria-label={`${currentFile.file.type || "Unknown"} file icon`}
+            >
+              {getFileIcon(currentFile.file)}
+            </div>
+          )}
 
-        <div className="flex-1">
-          <div className=" ">{currentFile.file.name}</div>
-          <div className=" ">
-            {formatFileSize(currentFile.file.size)} -{" "}
-            {currentFile.file.type || "unknown"}
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-gray-900 dark:text-gray-100 text-sm sm:text-base truncate">
+              {currentFile.file.name}
+            </div>
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              {formatFileSize(currentFile.file.size)} -{" "}
+              {currentFile.file.type || "unknown"}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:flex-shrink-0">
           {(!currentFile.conversion?.status ||
             currentFile.conversion.status === "idle") &&
             (() => {
@@ -208,7 +218,7 @@ export default function FileListItem({
 
               if (availableFormats.length === 0) {
                 return (
-                  <span className="text-gray-500 px-4 py-2">
+                  <span className="text-gray-500 px-3 py-2 text-center text-sm">
                     No conversions available
                   </span>
                 );
@@ -218,7 +228,8 @@ export default function FileListItem({
                 <select
                   value={currentFile.conversion?.selectedType || ""}
                   onChange={(event) => setSelectedType(id, event.target.value)}
-                  className="bg-gray-300 dark:bg-gray-700 rounded-lg font-semibold px-4 py-2 cursor-pointer"
+                  className="bg-gray-300 dark:bg-gray-700 rounded-lg font-semibold px-3 sm:px-4 py-2 cursor-pointer text-sm sm:text-base w-full sm:w-auto"
+                  aria-label={`Select conversion format for ${currentFile.file.name}`}
                 >
                   <option value="">Select type</option>
 
@@ -280,18 +291,27 @@ export default function FileListItem({
             })()}
 
           {currentFile.conversion?.status === "converting" ? (
+            <div className="flex items-center justify-center gap-2 py-1">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-500 border-t-transparent"></div>
+              <span className="bg-yellow-500 rounded-lg font-semibold px-3 sm:px-4 py-2 text-sm sm:text-base">
+                Converting...
+              </span>
+            </div>
+          ) : currentFile.conversion?.status === "error" ? (
             <button
-              aria-label="Converting file..."
-              className="bg-yellow-500 rounded-lg font-semibold px-4 py-2"
+              onClick={() => returnToSelection(id)}
+              aria-label="Retry conversion"
+              className="font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto"
+              title={currentFile.conversion?.error || "Conversion failed"}
             >
-              Converting...
+              Error - Retry
             </button>
           ) : currentFile.conversion?.status === "done" ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <button
                 onClick={() => returnToSelection(id)}
                 aria-label="Change file type"
-                className="font-semibold bg-gray-300 dark:bg-gray-700 rounded-lg cursor-pointer px-4 py-2"
+                className="font-semibold bg-gray-300 dark:bg-gray-700 rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base"
               >
                 Change type
               </button>
@@ -299,21 +319,14 @@ export default function FileListItem({
               <button
                 onClick={() => triggerDownload(id)}
                 aria-label="Download converted file"
-                className="font-semibold bg-green-500 dark:bg-green-600 rounded-lg cursor-pointer px-4 py-2"
+                className="font-semibold bg-green-500 dark:bg-green-600 rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base"
               >
                 Download
               </button>
             </div>
           ) : (
             (() => {
-              const fileCategory = getFileCategory(currentFile.file);
-              const isAudioVideo =
-                fileCategory === "audio" || fileCategory === "video";
-              const isDisabled =
-                !currentFile.conversion?.selectedType ||
-                (isAudioVideo && !isFFmpegReady);
-              const buttonText =
-                isAudioVideo && !isFFmpegReady ? "Loading..." : "Convert";
+              const isDisabled = !currentFile.conversion?.selectedType;
 
               return (
                 <button
@@ -321,13 +334,13 @@ export default function FileListItem({
                   disabled={isDisabled}
                   aria-label="Start converting file"
                   title="Start converting file"
-                  className={`font-semibold rounded-lg px-4 py-2 ${
+                  className={`font-semibold rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto ${
                     !isDisabled
                       ? "bg-blue-500 dark:bg-blue-600 cursor-pointer"
                       : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
                   }`}
                 >
-                  {buttonText}
+                  Convert
                 </button>
               );
             })()
@@ -337,7 +350,7 @@ export default function FileListItem({
             onClick={() => removeFile(id)}
             aria-label="Remove file"
             title="Remove file"
-            className="bg-red-500 hover:bg-red-600 rounded-lg cursor-pointer px-3 py-2 flex items-center justify-center"
+            className="bg-red-500 hover:bg-red-600 rounded-lg cursor-pointer px-2 sm:px-3 py-2 flex items-center justify-center flex-shrink-0"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -345,7 +358,7 @@ export default function FileListItem({
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
-              className="w-5 h-5 text-white"
+              className="w-4 h-4 sm:w-5 sm:h-5 text-white"
               aria-hidden="true"
             >
               <polyline points="3 6 5 6 21 6" />

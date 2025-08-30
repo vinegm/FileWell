@@ -1,5 +1,5 @@
 import { ThemeProvider } from "next-themes";
-import "./globals.css";
+import "@/app/globals.css";
 
 export const metadata = {
   title: "FileWell",
@@ -10,6 +10,12 @@ export const metadata = {
   authors: [{ name: "Vinícius Gonçalves Mohr", url: "https://vinegm.dev" }],
   creator: "Vinícius Gonçalves Mohr",
   icon: "/favicon.ico",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 export default function RootLayout({ children }) {
