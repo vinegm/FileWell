@@ -12,7 +12,7 @@ export default function Navbar() {
             width={40}
             height={40}
             priority
-            className="rounded-lg sm:w-[45px] sm:h-[45px] lg:w-[50px] lg:h-[50px]"
+            className="rounded-lg sm:w-11.25 sm:h-11.25 lg:w-12.5 lg:h-12.5"
           />
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">
             FileWell

@@ -3,16 +3,32 @@
 import { useCallback, useState, useRef, useEffect } from "react";
 import FileListItem from "@/components/client/FileListItem";
 
+interface FileConversion {
+  status: string;
+  selectedType: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+interface FileItem {
+  id: number;
+  file: File;
+  conversion: FileConversion;
+}
+
 export default function FileManager() {
-  const [files, setFiles] = useState([]);
-  const [isFFmpegReady, setIsFFmpegReady] = useState(false);
-  const fileId = useRef(1);
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const filesRef = useRef(files);
+  const numFiles = useRef(1);
 
   useEffect(() => {
-    const handleBeforeUnload = (event) => {
-      if (files.length > 0) {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (filesRef.current.length > 0) {
         event.preventDefault();
-        event.returnValue = "Changes you made may not be saved.";
       }
     };
 
@@ -21,48 +37,34 @@ export default function FileManager() {
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [files]);
-
-  useEffect(() => {
-    const preloadFFmpeg = async () => {
-      try {
-        const { default: loadFfmpeg } = await import("@/utils/load-ffmpeg");
-        await loadFfmpeg();
-        setIsFFmpegReady(true);
-      } catch (error) {
-        setIsFFmpegReady(true);
-      }
-    };
-
-    preloadFFmpeg();
   }, []);
 
-  const onDrop = useCallback((event) => {
+  const onDrop = useCallback((event: React.DragEvent<HTMLElement>) => {
     event.preventDefault();
     const list = Array.from(event.dataTransfer?.files || []);
     if (list.length)
       setFiles((prevFiles) =>
         prevFiles.concat(
           list.map((file) => ({
-            id: fileId.current++,
+            id: numFiles.current++,
             file,
             conversion: { status: "idle", selectedType: "" },
-          }))
-        )
+          })),
+        ),
       );
   }, []);
 
-  const onPick = useCallback((event) => {
+  const onPick = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(event.target.files || []);
     if (list.length)
       setFiles((prevFiles) =>
         prevFiles.concat(
           list.map((file) => ({
-            id: fileId.current++,
+            id: numFiles.current++,
             file,
             conversion: { status: "idle", selectedType: "" },
-          }))
-        )
+          })),
+        ),
       );
   }, []);
 
@@ -82,7 +84,7 @@ export default function FileManager() {
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              document.getElementById("filepick").click();
+              document.getElementById("filepick")?.click();
             }
           }}
         >
@@ -115,14 +117,12 @@ export default function FileManager() {
             </p>
           )}
           <ul className="space-y-2 sm:space-y-3">
-            {files.map(({ id }, index) => (
+            {files.map(({ id }, _) => (
               <FileListItem
                 key={id}
                 id={id}
-                index={index}
                 files={files}
                 setFiles={setFiles}
-                isFFmpegReady={isFFmpegReady}
               />
             ))}
           </ul>

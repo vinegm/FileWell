@@ -6,17 +6,32 @@ import {
   getFileIcon,
   formatFileSize,
   FORMAT_OPTIONS,
+  FormatOption,
 } from "@/utils/file-types";
+import ActionButton from "./ActionButton";
 
-export default function FileListItem({
-  id,
-  index,
-  files,
-  setFiles,
-  isFFmpegReady,
-}) {
+interface FileConversion {
+  status: string;
+  selectedType: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+interface FileItem {
+  id: number;
+  file: File;
+  conversion: FileConversion;
+}
+
+interface FileListItemProps {
+  id: number;
+  files: FileItem[];
+  setFiles: React.Dispatch<React.SetStateAction<FileItem[]>>;
+}
+
+export default function FileListItem({ id, files, setFiles }: FileListItemProps) {
   const removeFile = useCallback(
-    (idToRemove) => {
+    (idToRemove: number) => {
       setFiles((prevFiles) => {
         const target = prevFiles.find((file) => file.id === idToRemove);
 
@@ -29,11 +44,11 @@ export default function FileListItem({
         return prevFiles.filter((file) => file.id !== idToRemove);
       });
     },
-    [setFiles]
+    [setFiles],
   );
 
   const setSelectedType = useCallback(
-    (id, selectedType) => {
+    (id: number, selectedType: string) => {
       setFiles((prevFiles) =>
         prevFiles.map((file) =>
           file.id === id
@@ -45,15 +60,15 @@ export default function FileListItem({
                   status: file.conversion?.status || "idle",
                 },
               }
-            : file
-        )
+            : file,
+        ),
       );
     },
-    [setFiles]
+    [setFiles],
   );
 
   const startConvert = useCallback(
-    (id) => {
+    (id: number) => {
       (async () => {
         setFiles((prevFiles) =>
           prevFiles.map((file) =>
@@ -65,8 +80,8 @@ export default function FileListItem({
                     status: "converting",
                   },
                 }
-              : file
-          )
+              : file,
+          ),
         );
 
         const entry = files.find((fileItem) => fileItem.id === id);
@@ -91,8 +106,8 @@ export default function FileListItem({
                       downloadUrl: url,
                     },
                   }
-                : file
-            )
+                : file,
+            ),
           );
         } catch (err) {
           setFiles((prevFiles) =>
@@ -106,17 +121,17 @@ export default function FileListItem({
                       error: String(err),
                     },
                   }
-                : file
-            )
+                : file,
+            ),
           );
         }
       })();
     },
-    [setFiles, files]
+    [setFiles, files],
   );
 
   const returnToSelection = useCallback(
-    (id) => {
+    (id: number) => {
       setFiles((prevFiles) =>
         prevFiles.map((file) => {
           if (file.id !== id) return file;
@@ -136,14 +151,14 @@ export default function FileListItem({
               selectedType: "",
             },
           };
-        })
+        }),
       );
     },
-    [setFiles]
+    [setFiles],
   );
 
   const triggerDownload = useCallback(
-    (id) => {
+    (id: number) => {
       const entry = files.find((fileItem) => fileItem.id === id);
       if (!entry || !entry.conversion) return;
 
@@ -169,7 +184,7 @@ export default function FileListItem({
       link.click();
       link.remove();
     },
-    [files]
+    [files],
   );
 
   const currentFile = files.find((file) => file.id === id);
@@ -184,13 +199,13 @@ export default function FileListItem({
             <img
               src={URL.createObjectURL(currentFile.file)}
               alt={`Preview of ${currentFile.file.name}`}
-              className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-gray-300 dark:border-gray-600 flex-shrink-0"
-              onLoad={(event) => URL.revokeObjectURL(event.target.src)}
+              className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-gray-300 dark:border-gray-600 shrink-0"
+              onLoad={(event) => URL.revokeObjectURL((event.target as HTMLImageElement).src)}
               loading="lazy"
             />
           ) : (
             <div
-              className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
+              className="shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
               role="img"
               aria-label={`${currentFile.file.type || "Unknown"} file icon`}
             >
@@ -209,7 +224,7 @@ export default function FileListItem({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:flex-shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto sm:shrink-0">
           {(!currentFile.conversion?.status ||
             currentFile.conversion.status === "idle") &&
             (() => {
@@ -235,7 +250,7 @@ export default function FileListItem({
 
                   {fileCategory === "image" && (
                     <optgroup label="Image">
-                      {availableFormats.map((opt) => (
+                      {availableFormats.map((opt: FormatOption) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
@@ -246,7 +261,7 @@ export default function FileListItem({
                   {fileCategory === "audio" && (
                     <>
                       <optgroup label="Audio">
-                        {availableFormats.map((opt) => (
+                        {availableFormats.map((opt: FormatOption) => (
                           <option key={opt.value} value={opt.value}>
                             {opt.label}
                           </option>
@@ -255,7 +270,7 @@ export default function FileListItem({
 
                       {FORMAT_OPTIONS.video.length > 0 && (
                         <optgroup label="Video">
-                          {FORMAT_OPTIONS.video.map((opt) => (
+                          {FORMAT_OPTIONS.video.map((opt: FormatOption) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
@@ -268,7 +283,7 @@ export default function FileListItem({
                   {fileCategory === "video" && (
                     <>
                       <optgroup label="Video">
-                        {availableFormats.map((opt) => (
+                        {availableFormats.map((opt: FormatOption) => (
                           <option key={opt.value} value={opt.value}>
                             {opt.label}
                           </option>
@@ -277,7 +292,7 @@ export default function FileListItem({
 
                       {FORMAT_OPTIONS.audio.length > 0 && (
                         <optgroup label="Audio">
-                          {FORMAT_OPTIONS.audio.map((opt) => (
+                          {FORMAT_OPTIONS.audio.map((opt: FormatOption) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
@@ -290,67 +305,18 @@ export default function FileListItem({
               );
             })()}
 
-          {currentFile.conversion?.status === "converting" ? (
-            <div className="flex items-center justify-center gap-2 py-1">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-500 border-t-transparent"></div>
-              <span className="bg-yellow-500 rounded-lg font-semibold px-3 sm:px-4 py-2 text-sm sm:text-base">
-                Converting...
-              </span>
-            </div>
-          ) : currentFile.conversion?.status === "error" ? (
-            <button
-              onClick={() => returnToSelection(id)}
-              aria-label="Retry conversion"
-              className="font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto"
-              title={currentFile.conversion?.error || "Conversion failed"}
-            >
-              Error - Retry
-            </button>
-          ) : currentFile.conversion?.status === "done" ? (
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <button
-                onClick={() => returnToSelection(id)}
-                aria-label="Change file type"
-                className="font-semibold bg-gray-300 dark:bg-gray-700 rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base"
-              >
-                Change type
-              </button>
-
-              <button
-                onClick={() => triggerDownload(id)}
-                aria-label="Download converted file"
-                className="font-semibold bg-green-500 dark:bg-green-600 rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base"
-              >
-                Download
-              </button>
-            </div>
-          ) : (
-            (() => {
-              const isDisabled = !currentFile.conversion?.selectedType;
-
-              return (
-                <button
-                  onClick={() => startConvert(id)}
-                  disabled={isDisabled}
-                  aria-label="Start converting file"
-                  title="Start converting file"
-                  className={`font-semibold rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto ${
-                    !isDisabled
-                      ? "bg-blue-500 dark:bg-blue-600 cursor-pointer"
-                      : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
-                  }`}
-                >
-                  Convert
-                </button>
-              );
-            })()
-          )}
+          <ActionButton
+            file={currentFile}
+            startConvert={startConvert}
+            returnToSelection={returnToSelection}
+            triggerDownload={triggerDownload}
+          />
 
           <button
             onClick={() => removeFile(id)}
             aria-label="Remove file"
             title="Remove file"
-            className="bg-red-500 hover:bg-red-600 rounded-lg cursor-pointer px-2 sm:px-3 py-2 flex items-center justify-center flex-shrink-0"
+            className="bg-red-500 hover:bg-red-600 rounded-lg cursor-pointer px-2 sm:px-3 py-2 flex items-center justify-center shrink-0"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

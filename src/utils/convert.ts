@@ -1,18 +1,17 @@
 import { fetchFile } from "@ffmpeg/util";
-import loadFfmpeg from "@/utils/load-ffmpeg.js";
+import loadFfmpeg from "@/utils/load-ffmpeg";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
 
 /**
  * FileConverter class for handling file conversions
  */
 class FileConverter {
-  constructor() {
-    this.ffmpegInstance = null;
-  }
+  private ffmpegInstance: FFmpeg | null = null;
 
   /**
    * Extracts file extension from filename
    */
-  getFileExtension(fileName) {
+  getFileExtension(fileName: string): string {
     const regex = /(?:\.([^.]+))?$/;
     const match = regex.exec(fileName);
 
@@ -24,7 +23,7 @@ class FileConverter {
   /**
    * Removes file extension from filename
    */
-  removeFileExtension(fileName) {
+  removeFileExtension(fileName: string): string {
     const lastDotIndex = fileName.lastIndexOf(".");
 
     if (lastDotIndex !== -1) return fileName.slice(0, lastDotIndex);
@@ -35,7 +34,7 @@ class FileConverter {
   /**
    * Gets or creates FFmpeg instance with error handling
    */
-  async getFFmpegInstance() {
+  async getFFmpegInstance(): Promise<FFmpeg> {
     if (!this.ffmpegInstance) {
       try {
         this.ffmpegInstance = await loadFfmpeg();
@@ -46,20 +45,24 @@ class FileConverter {
       }
     }
 
+    if (!this.ffmpegInstance) {
+      throw new Error("FFmpeg instance is null after initialization");
+    }
+
     return this.ffmpegInstance;
   }
 
   /**
    * Resets the FFmpeg instance (useful for memory issues)
    */
-  resetFFmpegInstance() {
+  resetFFmpegInstance(): void {
     this.ffmpegInstance = null;
   }
 
   /**
    * Converts files using FFmpeg WebAssembly (supports images, audio, and video)
    */
-  async convert(file, format) {
+  async convert(file: File, format: string): Promise<Blob> {
     try {
       const ffmpeg = await this.getFFmpegInstance();
 
@@ -70,7 +73,7 @@ class FileConverter {
 
       await ffmpeg.writeFile(input, await fetchFile(file));
 
-      let ffmpegCmd = ["-i", input];
+      let ffmpegCmd: string[] = ["-i", input];
 
       // Format-specific optimizations
       if (format === "jpeg" || format === "jpg") {
@@ -112,7 +115,7 @@ class FileConverter {
       await ffmpeg.exec(ffmpegCmd);
 
       const data = await ffmpeg.readFile(output);
-      const blob = new Blob([data]);
+      const blob = new Blob([data as BlobPart]);
 
       try {
         await ffmpeg.deleteFile(input);
@@ -123,14 +126,14 @@ class FileConverter {
 
       return blob;
     } catch (error) {
-      throw new Error(`Failed to convert ${file.name}: ${error.message}`);
+      throw new Error(`Failed to convert ${file.name}: ${(error as Error).message}`);
     }
   }
 
   /**
    * Main conversion function - routes to appropriate converter based on file type
    */
-  async convertFile(original, selected) {
+  async convertFile(original: File, selected: string | null): Promise<Blob> {
     if (!selected) throw new Error("No target format selected");
 
     try {
@@ -146,6 +149,7 @@ class FileConverter {
       throw new Error(`Unsupported file type: ${original.type}`);
     } catch (error) {
       if (
+        error instanceof Error &&
         error.message &&
         error.message.includes("memory access out of bounds")
       ) {

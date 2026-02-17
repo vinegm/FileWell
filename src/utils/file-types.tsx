@@ -1,7 +1,19 @@
-export const FORMAT_OPTIONS = {
+export interface FormatOption {
+  value: string;
+  label: string;
+}
+
+export interface FormatOptions {
+  image: FormatOption[];
+  audio: FormatOption[];
+  video: FormatOption[];
+}
+
+export const FORMAT_OPTIONS: FormatOptions = {
   image: [
     { value: "png", label: "PNG" },
     { value: "jpeg", label: "JPEG" },
+    { value: "jpg", label: "JPG" },
     { value: "webp", label: "WEBP" },
     { value: "avif", label: "AVIF" },
     { value: "tiff", label: "TIFF" },
@@ -23,10 +35,14 @@ export const FORMAT_OPTIONS = {
   ],
 };
 
+import converter from "./convert";
+
+type FileCategory = "image" | "audio" | "video" | "unknown";
+
 /**
  * Determines the file type category from a File object
  */
-export function getFileCategory(file) {
+export function getFileCategory(file: File): FileCategory {
   if (!file?.type) return "unknown";
 
   if (file.type.startsWith("image/")) return "image";
@@ -39,18 +55,24 @@ export function getFileCategory(file) {
 /**
  * Gets available format options for a file
  */
-export function getAvailableFormats(file) {
+export function getAvailableFormats(file: File): FormatOption[] {
   const category = getFileCategory(file);
-
   if (category === "unknown") return [];
 
-  return FORMAT_OPTIONS[category] || [];
+  const options = FORMAT_OPTIONS[category] || [];
+
+  const name = file?.name || "";
+
+  const rawExt = (converter.getFileExtension(name) || "").toLowerCase();
+  if (!rawExt) return options;
+
+  return options.filter((opt) => (opt.value || "").toLowerCase() !== rawExt);
 }
 
 /**
  * Gets the appropriate file icon SVG based on file type
  */
-export function getFileIcon(file) {
+export function getFileIcon(file: File): JSX.Element {
   const category = getFileCategory(file);
 
   switch (category) {
@@ -133,7 +155,7 @@ export function getFileIcon(file) {
 /**
  * Formats file size in a human-readable way
  */
-export function formatFileSize(bytes) {
+export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
 
   const k = 1024;
