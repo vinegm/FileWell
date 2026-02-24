@@ -1,72 +1,48 @@
 "use client";
 
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import FileListItem from "@/components/client/FileListItem";
+import type { FileItem } from "@/types";
 
-interface FileConversion {
-  status: string;
-  selectedType: string;
-  downloadUrl?: string;
-  error?: string;
-}
-
-interface FileItem {
-  id: number;
-  file: File;
-  conversion: FileConversion;
+// Pseudo-unique ID generator, who cares ykwim
+function generateId() {
+  return Date.now() + Math.random();
 }
 
 export default function FileManager() {
   const [files, setFiles] = useState<FileItem[]>([]);
-  const filesRef = useRef(files);
-  const numFiles = useRef(1);
-
-  useEffect(() => {
-    filesRef.current = files;
-  }, [files]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (filesRef.current.length > 0) {
+      if (files.length > 0) {
         event.preventDefault();
       }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [files.length]);
 
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, []);
+  const addFiles = (newFiles: File[]) => {
+    if (!newFiles.length) return;
+    setFiles((prev) => [
+      ...prev,
+      ...newFiles.map((file) => ({
+        id: generateId(),
+        file,
+        conversion: { status: "idle", selectedType: "" },
+      })),
+    ]);
+  };
 
-  const onDrop = useCallback((event: React.DragEvent<HTMLElement>) => {
+  const onDrop = (event: React.DragEvent<HTMLElement>) => {
     event.preventDefault();
-    const list = Array.from(event.dataTransfer?.files || []);
-    if (list.length)
-      setFiles((prevFiles) =>
-        prevFiles.concat(
-          list.map((file) => ({
-            id: numFiles.current++,
-            file,
-            conversion: { status: "idle", selectedType: "" },
-          })),
-        ),
-      );
-  }, []);
+    addFiles(Array.from(event.dataTransfer?.files || []));
+  };
 
-  const onPick = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const list = Array.from(event.target.files || []);
-    if (list.length)
-      setFiles((prevFiles) =>
-        prevFiles.concat(
-          list.map((file) => ({
-            id: numFiles.current++,
-            file,
-            conversion: { status: "idle", selectedType: "" },
-          })),
-        ),
-      );
-  }, []);
+  const onPick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(event.target.files || []));
+  };
 
   return (
     <div className="space-y-8 sm:space-y-10">
@@ -117,12 +93,24 @@ export default function FileManager() {
             </p>
           )}
           <ul className="space-y-2 sm:space-y-3">
-            {files.map(({ id }, _) => (
+            {files.map((file) => (
               <FileListItem
-                key={id}
-                id={id}
-                files={files}
-                setFiles={setFiles}
+                key={file.id}
+                file={file}
+                onUpdate={(updatedFile) =>
+                  setFiles((prev) =>
+                    prev.map((f) => (f.id === file.id ? updatedFile : f)),
+                  )
+                }
+                onRemove={(id) =>
+                  setFiles((prev) => {
+                    const target = prev.find((f) => f.id === id);
+                    if (target?.conversion?.downloadUrl) {
+                      URL.revokeObjectURL(target.conversion.downloadUrl);
+                    }
+                    return prev.filter((f) => f.id !== id);
+                  })
+                }
               />
             ))}
           </ul>

@@ -1,75 +1,18 @@
 import { fetchFile } from "@ffmpeg/util";
 import loadFfmpeg from "@/utils/load-ffmpeg";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
 
-/**
- * FileConverter class for handling file conversions
- */
 class FileConverter {
-  private ffmpegInstance: FFmpeg | null = null;
-
-  /**
-   * Extracts file extension from filename
-   */
   getFileExtension(fileName: string): string {
-    const regex = /(?:\.([^.]+))?$/;
-    const match = regex.exec(fileName);
-
-    if (match && match[1]) return match[1];
-
-    return "";
+    const match = /(?:\.([^.]+))?$/.exec(fileName);
+    return match?.[1] || "";
   }
 
-  /**
-   * Removes file extension from filename
-   */
-  removeFileExtension(fileName: string): string {
-    const lastDotIndex = fileName.lastIndexOf(".");
-
-    if (lastDotIndex !== -1) return fileName.slice(0, lastDotIndex);
-
-    return fileName;
-  }
-
-  /**
-   * Gets or creates FFmpeg instance with error handling
-   */
-  async getFFmpegInstance(): Promise<FFmpeg> {
-    if (!this.ffmpegInstance) {
-      try {
-        this.ffmpegInstance = await loadFfmpeg();
-      } catch (error) {
-        throw new Error(
-          "FFmpeg failed to load. Please refresh the page and try again."
-        );
-      }
-    }
-
-    if (!this.ffmpegInstance) {
-      throw new Error("FFmpeg instance is null after initialization");
-    }
-
-    return this.ffmpegInstance;
-  }
-
-  /**
-   * Resets the FFmpeg instance (useful for memory issues)
-   */
-  resetFFmpegInstance(): void {
-    this.ffmpegInstance = null;
-  }
-
-  /**
-   * Converts files using FFmpeg WebAssembly (supports images, audio, and video)
-   */
   async convert(file: File, format: string): Promise<Blob> {
-    try {
-      const ffmpeg = await this.getFFmpegInstance();
+    const ffmpeg = await loadFfmpeg();
 
-      // Using unique filenames to avoid conflicts
-      const timestamp = Date.now();
-      const input = `input_${timestamp}.${this.getFileExtension(file.name)}`;
-      const output = `output_${timestamp}.${format}`;
+    try {
+      const input = `input.${this.getFileExtension(file.name)}`;
+      const output = `output.${format}`;
 
       await ffmpeg.writeFile(input, await fetchFile(file));
 
@@ -83,9 +26,7 @@ class FileConverter {
       } else if (format === "webp") {
         ffmpegCmd.push("-q:v", "80");
       } else if (format === "3gp") {
-        ffmpegCmd = [
-          "-i",
-          input,
+        ffmpegCmd.push(
           "-r",
           "20",
           "-s",
@@ -102,16 +43,10 @@ class FileConverter {
           "8000",
           "-ab",
           "24k",
-          output,
-        ];
-      } else {
-        ffmpegCmd.push(output);
+        );
       }
 
-      if (!ffmpegCmd.includes(output)) {
-        ffmpegCmd.push(output);
-      }
-
+      ffmpegCmd.push(output);
       await ffmpeg.exec(ffmpegCmd);
 
       const data = await ffmpeg.readFile(output);
@@ -120,52 +55,22 @@ class FileConverter {
       try {
         await ffmpeg.deleteFile(input);
         await ffmpeg.deleteFile(output);
-      } catch (cleanupError) {
-        console.warn("Cleanup warning:", cleanupError);
+      } catch (err) {
+        console.warn("Cleanup warning:", err);
       }
 
       return blob;
-    } catch (error) {
-      throw new Error(`Failed to convert ${file.name}: ${(error as Error).message}`);
+    } finally {
+      ffmpeg.terminate();
     }
   }
 
-  /**
-   * Main conversion function - routes to appropriate converter based on file type
-   */
-  async convertFile(original: File, selected: string | null): Promise<Blob> {
-    if (!selected) throw new Error("No target format selected");
-
+  async convertFile(file: File, format: string): Promise<Blob> {
     try {
-      if (
-        original.type &&
-        (original.type.startsWith("image/") ||
-          original.type.startsWith("video/") ||
-          original.type.startsWith("audio/"))
-      ) {
-        return await this.convert(original, selected);
-      }
-
-      throw new Error(`Unsupported file type: ${original.type}`);
+      return await this.convert(file, format);
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message &&
-        error.message.includes("memory access out of bounds")
-      ) {
-        this.resetFFmpegInstance();
-
-        if (
-          original.type &&
-          (original.type.startsWith("image/") ||
-            original.type.startsWith("video/") ||
-            original.type.startsWith("audio/"))
-        ) {
-          return await this.convert(original, selected);
-        }
-      }
-
-      throw error;
+      // Retry once on error
+      return await this.convert(file, format);
     }
   }
 }

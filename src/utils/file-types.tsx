@@ -3,19 +3,12 @@ export interface FormatOption {
   label: string;
 }
 
-export interface FormatOptions {
-  image: FormatOption[];
-  audio: FormatOption[];
-  video: FormatOption[];
-}
-
-export const FORMAT_OPTIONS: FormatOptions = {
+export const FORMAT_OPTIONS = {
   image: [
     { value: "png", label: "PNG" },
     { value: "jpeg", label: "JPEG" },
     { value: "jpg", label: "JPG" },
     { value: "webp", label: "WEBP" },
-    { value: "avif", label: "AVIF" },
     { value: "tiff", label: "TIFF" },
     { value: "bmp", label: "BMP" },
     { value: "ico", label: "ICO" },
@@ -35,132 +28,93 @@ export const FORMAT_OPTIONS: FormatOptions = {
   ],
 };
 
-import converter from "./convert";
-
 type FileCategory = "image" | "audio" | "video" | "unknown";
 
-/**
- * Determines the file type category from a File object
- */
-export function getFileCategory(file: File): FileCategory {
+export const getFileCategory = (file: File): FileCategory => {
   if (!file?.type) return "unknown";
-
   if (file.type.startsWith("image/")) return "image";
   if (file.type.startsWith("audio/")) return "audio";
   if (file.type.startsWith("video/")) return "video";
-
   return "unknown";
-}
+};
 
-/**
- * Gets available format options for a file
- */
-export function getAvailableFormats(file: File): FormatOption[] {
+export const getAvailableFormats = (file: File): FormatOption[] => {
   const category = getFileCategory(file);
   if (category === "unknown") return [];
 
-  const options = FORMAT_OPTIONS[category] || [];
+  const options = FORMAT_OPTIONS[category];
+  const currentExt = file.name.split(".").pop()?.toLowerCase() || "";
 
-  const name = file?.name || "";
+  return options.filter((opt) => opt.value !== currentExt);
+};
 
-  const rawExt = (converter.getFileExtension(name) || "").toLowerCase();
-  if (!rawExt) return options;
-
-  return options.filter((opt) => (opt.value || "").toLowerCase() !== rawExt);
-}
-
-/**
- * Gets the appropriate file icon SVG based on file type
- */
-export function getFileIcon(file: File): JSX.Element {
+export const getFileIcon = (file: File) => {
   const category = getFileCategory(file);
+  const iconClass = "w-6 h-6";
 
-  switch (category) {
-    case "audio":
-      return (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-blue-500"
-        >
-          <path d="M9 18V5l12-2v13" />
-          <circle cx="6" cy="18" r="3" />
-          <circle cx="18" cy="16" r="3" />
-        </svg>
-      );
-    case "video":
-      return (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-purple-500"
-        >
-          <polygon points="23 7 16 12 23 17 23 7" />
-          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-        </svg>
-      );
-    case "image":
-      return (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-green-500"
-        >
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <circle cx="9" cy="9" r="2" />
-          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-        </svg>
-      );
-    default:
-      return (
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-gray-500"
-        >
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14,2 14,8 20,8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10,9 9,9 8,9" />
-        </svg>
-      );
-  }
-}
+  const icons = {
+    audio: (
+      <svg
+        className={`${iconClass} text-blue-500`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+    ),
+    video: (
+      <svg
+        className={`${iconClass} text-purple-500`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <polygon points="23 7 16 12 23 17 23 7" />
+        <rect x="1" y="5" width="15" height="14" rx="2" />
+      </svg>
+    ),
+    image: (
+      <svg
+        className={`${iconClass} text-green-500`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+      </svg>
+    ),
+    unknown: (
+      <svg
+        className={`${iconClass} text-gray-500`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14,2 14,8 20,8" />
+      </svg>
+    ),
+  };
 
-/**
- * Formats file size in a human-readable way
- */
-export function formatFileSize(bytes: number): string {
+  return icons[category] || icons.unknown;
+};
+
+export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return "0 B";
 
-  const k = 1024;
+  const kb = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
+  const i = Math.floor(Math.log(bytes) / Math.log(kb));
+
+  return `${(bytes / Math.pow(kb, i)).toFixed(1)} ${sizes[i]}`;
+};
