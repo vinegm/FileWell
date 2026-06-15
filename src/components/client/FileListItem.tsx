@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import converter from "@/utils/convert";
 import {
   getFileIcon,
@@ -19,6 +20,24 @@ export default function FileListItem({
   onUpdate,
   onRemove,
 }: FileListItemProps) {
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file.file.type?.startsWith("image/")) return;
+
+    const url = URL.createObjectURL(file.file);
+    setPreviewUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [file.file]);
+
   const handleSelectType = (selectedType: string) => {
     onUpdate({
       ...file,
@@ -27,6 +46,8 @@ export default function FileListItem({
   };
 
   const handleConvert = async () => {
+    if (file.conversion.status === "converting") return;
+
     onUpdate({
       ...file,
       conversion: { ...file.conversion, status: "converting" },
@@ -37,12 +58,16 @@ export default function FileListItem({
         file.file,
         file.conversion.selectedType,
       );
+      if (!isMountedRef.current) return;
+
       const url = URL.createObjectURL(blob);
       onUpdate({
         ...file,
         conversion: { ...file.conversion, status: "done", downloadUrl: url },
       });
     } catch (err) {
+      if (!isMountedRef.current) return;
+
       onUpdate({
         ...file,
         conversion: { ...file.conversion, status: "error", error: String(err) },
@@ -160,13 +185,19 @@ export default function FileListItem({
 
       case "error":
         return (
-          <button
-            onClick={handleRetry}
-            className="font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto"
-            title={file.conversion.error}
-          >
-            Error - Retry
-          </button>
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
+            <button
+              onClick={handleRetry}
+              className="font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg cursor-pointer px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto"
+            >
+              Error - Retry
+            </button>
+            {file.conversion.error && (
+              <span className="text-xs text-red-500 break-words">
+                {file.conversion.error}
+              </span>
+            )}
+          </div>
         );
 
       case "done":
@@ -193,11 +224,10 @@ export default function FileListItem({
           <button
             onClick={handleConvert}
             disabled={isDisabled}
-            className={`font-semibold rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto ${
-              !isDisabled
-                ? "bg-blue-500 dark:bg-blue-600 cursor-pointer"
-                : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
-            }`}
+            className={`font-semibold rounded-lg px-3 sm:px-4 py-2 text-sm sm:text-base w-full sm:w-auto ${!isDisabled
+              ? "bg-blue-500 dark:bg-blue-600 cursor-pointer"
+              : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
+              }`}
           >
             Convert
           </button>
@@ -209,14 +239,11 @@ export default function FileListItem({
     <li>
       <div className="flex flex-col sm:flex-row sm:items-center w-full file-card-bg-color transition-colors rounded-lg p-3 sm:p-4 gap-3 sm:gap-4">
         <div className="flex items-center gap-3 sm:gap-4 flex-1">
-          {file.file.type?.startsWith("image/") ? (
+          {file.file.type?.startsWith("image/") && previewUrl ? (
             <img
-              src={URL.createObjectURL(file.file)}
+              src={previewUrl}
               alt={`Preview of ${file.file.name}`}
               className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-gray-300 dark:border-gray-600 shrink-0"
-              onLoad={(e) =>
-                URL.revokeObjectURL((e.target as HTMLImageElement).src)
-              }
               loading="lazy"
             />
           ) : (

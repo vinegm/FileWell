@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import FileListItem from "@/components/client/FileListItem";
 import type { FileItem } from "@/types";
 
-// Pseudo-unique ID generator, who cares ykwim
+let nextId = 0;
 function generateId() {
-  return Date.now() + Math.random();
+  return nextId++;
 }
 
 export default function FileManager() {
