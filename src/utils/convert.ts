@@ -18,7 +18,7 @@ class FileConverter {
       try {
         await ffmpeg.writeFile(input, await fetchFile(file));
 
-        let ffmpegCmd: string[] = ["-i", input];
+        const ffmpegCmd: string[] = ["-i", input];
 
         // Format-specific optimizations
         if (format === "jpeg" || format === "jpg") {

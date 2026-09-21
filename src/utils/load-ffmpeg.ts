@@ -19,7 +19,10 @@ class FfmpegHandler {
       this.loadingPromise = (async () => {
         const ffmpeg = new FFmpeg();
 
-        await ffmpeg.load({});
+        await ffmpeg.load({
+          coreURL: "/ffmpeg/ffmpeg-core.js",
+          wasmURL: "/ffmpeg/ffmpeg-core.wasm",
+        });
         this.instance = ffmpeg;
 
         return ffmpeg;

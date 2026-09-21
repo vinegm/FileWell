@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import converter from "@/utils/convert";
 import {
   getFileIcon,
@@ -28,15 +28,17 @@ export default function FileListItem({
     };
   }, []);
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(
+    () =>
+      file.file.type?.startsWith("image/")
+        ? URL.createObjectURL(file.file)
+        : null,
+    [file.file],
+  );
   useEffect(() => {
-    if (!file.file.type?.startsWith("image/")) return;
-
-    const url = URL.createObjectURL(file.file);
-    setPreviewUrl(url);
-
-    return () => URL.revokeObjectURL(url);
-  }, [file.file]);
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const handleSelectType = (selectedType: string) => {
     onUpdate({
@@ -240,6 +242,9 @@ export default function FileListItem({
       <div className="flex flex-col sm:flex-row sm:items-center w-full file-card-bg-color transition-colors rounded-lg p-3 sm:p-4 gap-3 sm:gap-4">
         <div className="flex items-center gap-3 sm:gap-4 flex-1">
           {file.file.type?.startsWith("image/") && previewUrl ? (
+            // next/image can't optimize blob: URLs, and the file never
+            // leaves the browser anyway.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={previewUrl}
               alt={`Preview of ${file.file.name}`}

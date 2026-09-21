@@ -4,7 +4,7 @@ A modern, privacy-focused file conversion tool that runs entirely in your browse
 
 ## Tech Stack
 
-- **Next.js 15**
+- **Next.js 16**
 - **React 19**
 - **FFmpeg WebAssembly**
 - **Tailwind CSS 4**
